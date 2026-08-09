@@ -10,7 +10,7 @@ Control your Windows PC with hand gestures — move the cursor, click, drag, adj
 
 | Gesture | Action |
 |---------|--------|
-| ☝️ **Raise Index Finger** | Move cursor (tracks Landmark 8) |
+| ☝️ **Raise Index Finger** | Move cursor (tracks Index Knuckle / Landmark 5) |
 | 🤏 **Thumb + Index Pinch** (quick) | Left Click |
 | 🤏🤏 **Double Pinch** (< 400ms) | Left Double-Click |
 | 🤏 **Thumb + Index Hold** (> 300ms) | Left Click & Drag |
