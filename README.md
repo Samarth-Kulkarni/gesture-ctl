@@ -27,8 +27,8 @@ Control your Windows PC with hand gestures — move the cursor, click, drag, adj
 - **Python 3.9–3.12** (MediaPipe does not support 3.13+)
 - **Webcam** accessible via DirectShow
 
-> ⚠️ **Kaspersky / Antivirus Users:** Webcam protection may block `gesture-ctl` from accessing the camera. Add the Python executable (or `gesture-ctl`) to your antivirus whitelist:
-> - Kaspersky: *Settings → Privacy → Webcam → Add exclusion*
+> ⚠️ **Antivirus Users:** Webcam protection may block `gesture-ctl` from accessing the camera. Add the Python executable (or `gesture-ctl`) to your antivirus whitelist:
+> - Antivirus: *Settings → Privacy → Webcam → Add exclusion*
 
 ---
 
