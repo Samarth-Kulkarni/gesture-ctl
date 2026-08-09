@@ -10,8 +10,15 @@ import ctypes
 from dataclasses import dataclass, field
 
 
+# Ensure Windows gives us physical pixels, not scaled virtual pixels (e.g. 125% DPI)
+try:
+    ctypes.windll.user32.SetProcessDPIAware()
+except Exception:
+    pass
+
+
 def _screen_width() -> int:
-    """Return primary monitor width in pixels via Win32."""
+    """Return primary monitor width in physical pixels via Win32."""
     try:
         return ctypes.windll.user32.GetSystemMetrics(0)
     except Exception:
@@ -19,7 +26,7 @@ def _screen_width() -> int:
 
 
 def _screen_height() -> int:
-    """Return primary monitor height in pixels via Win32."""
+    """Return primary monitor height in physical pixels via Win32."""
     try:
         return ctypes.windll.user32.GetSystemMetrics(1)
     except Exception:
@@ -35,17 +42,19 @@ class Config:
     cam_width: int = 640
     cam_height: int = 480
 
-    # ── EMA Smoothing ───────────────────────────────────────────────────
+    # ── EMA Smoothing (Adaptive) ─────────────────────────────────────────
     ema_alpha: float = 0.2
+    ema_alpha_min: float = 0.15     # alpha when stationary (smooth hover)
+    ema_alpha_max: float = 0.75     # alpha when moving fast (zero lag)
 
     # ── Active Margin Box (pixels inside the camera frame) ──────────────
-    margin_px: int = 100
+    margin_px: int = 220            # large margin = small hand motion reaches full screen
 
     # ── Pinch Detection ─────────────────────────────────────────────────
-    pinch_threshold: float = 0.045  # normalised 3-D distance
-    quick_pinch_ms: int = 300       # max duration for a "click"
-    double_pinch_window_ms: int = 400  # window for second pinch → dbl-click
-    drag_hold_ms: int = 300         # min hold to start drag
+    pinch_threshold: float = 0.035  # 3D normalised tip distance
+    quick_pinch_ms: int = 250       # max pinch duration for a single click
+    double_pinch_window_ms: int = 350  # window for second pinch → double-click
+    drag_hold_ms: int = 250         # hold duration to start drag
 
     # ── System Gesture Thresholds ───────────────────────────────────────
     toggle_hold_s: float = 1.0      # V-sign hold to toggle engagement

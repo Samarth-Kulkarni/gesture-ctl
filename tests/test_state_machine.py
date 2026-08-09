@@ -50,38 +50,31 @@ def fsm(cfg: Config) -> PinchStateMachine:
 
 class TestLeftClick:
     def test_quick_pinch_single_click(self, fsm: PinchStateMachine) -> None:
-        """Pinch < 300ms then release → single click (after timeout)."""
+        """Pinch < 300ms then release → instant single click on release."""
         t = 0.0
         # Frame 1: pinch
         events = fsm.update(_make_landmarks(CLOSE), t)
         assert events == []
 
-        # Frame 2: release after 100ms
+        # Frame 2: release after 100ms → instant single click!
         t += 0.1
-        events = fsm.update(_make_landmarks(FAR), t)
-        assert events == []  # enters CLICK_CANDIDATE, waiting for double
-
-        # Frame 3: timeout (> 400ms window)
-        t += 0.5
         events = fsm.update(_make_landmarks(FAR), t)
         assert GestureEvent.LEFT_CLICK in events
 
     def test_double_click(self, fsm: PinchStateMachine) -> None:
-        """Two quick pinches within 400ms → double click."""
-        t = 0.0
+        """Two quick pinches within 400ms → double click on 2nd release."""
+        t = 1.0  # start at 1.0s to ensure clear last_click state
 
-        # First pinch
+        # First pinch release
         fsm.update(_make_landmarks(CLOSE), t)
         t += 0.1
-        fsm.update(_make_landmarks(FAR), t)  # release → CLICK_CANDIDATE
+        fsm.update(_make_landmarks(FAR), t)  # instant 1st click
 
-        # Second pinch within 400ms
+        # Second pinch release within 350ms
         t += 0.15
         fsm.update(_make_landmarks(CLOSE), t)  # re-pinch
         t += 0.05
-        events = fsm.update(_make_landmarks(FAR), t)  # release
-        # The double-click fires on the release of the second pinch
-        # (via PINCHED→release path detecting last_click within dbl window)
+        events = fsm.update(_make_landmarks(FAR), t)  # 2nd release
         assert GestureEvent.LEFT_DOUBLE_CLICK in events
 
     def test_drag_start_and_end(self, fsm: PinchStateMachine) -> None:
@@ -109,12 +102,10 @@ class TestLeftClick:
 
 class TestRightClick:
     def test_quick_pinch_right_click(self, fsm: PinchStateMachine) -> None:
-        """Thumb + middle quick pinch → right click."""
-        t = 0.0
+        """Thumb + middle quick pinch → instant right click on release."""
+        t = 1.0
         fsm.update(_make_landmarks(thumb_middle_dist=CLOSE), t)
         t += 0.1
-        fsm.update(_make_landmarks(thumb_middle_dist=FAR), t)
-        t += 0.5
         events = fsm.update(_make_landmarks(thumb_middle_dist=FAR), t)
         assert GestureEvent.RIGHT_CLICK in events
 

@@ -12,7 +12,8 @@ def cfg() -> Config:
         cam_width=640,
         cam_height=480,
         margin_px=100,
-        ema_alpha=1.0,  # α=1 disables smoothing for deterministic tests
+        ema_alpha_min=1.0,  # disable smoothing for deterministic boundary tests
+        ema_alpha_max=1.0,
         screen_width=1920,
         screen_height=1080,
     )
@@ -87,7 +88,7 @@ class TestEMA:
     def test_lower_alpha_is_smoother(self) -> None:
         """α=0.1 should be further from target after 3 steps than α=0.9."""
         def run_alpha(alpha: float) -> int:
-            cfg = Config(ema_alpha=alpha, screen_width=1920, screen_height=1080)
+            cfg = Config(ema_alpha_min=alpha, ema_alpha_max=alpha, screen_width=1920, screen_height=1080)
             m = ScreenMapper(cfg)
             m.map(0.5, 0.5)  # init at centre
             for _ in range(3):
@@ -96,13 +97,15 @@ class TestEMA:
 
         pos_slow = run_alpha(0.1)
         pos_fast = run_alpha(0.9)
-        # pos_fast should be closer to the target (right side)
-        target = int(0.8 * 1919)  # rough target
+        # The exact target pixel when smoothing is disabled
+        target = run_alpha(1.0)
+        
+        # pos_fast should be closer to the target
         assert abs(pos_fast - target) < abs(pos_slow - target)
 
     def test_reset_clears_history(self) -> None:
         """After reset(), the next call should behave like the first."""
-        cfg = Config(ema_alpha=0.2, screen_width=1920, screen_height=1080)
+        cfg = Config(ema_alpha_min=0.2, ema_alpha_max=0.2, screen_width=1920, screen_height=1080)
         mapper = ScreenMapper(cfg)
         mapper.map(0.5, 0.5)
         mapper.map(0.5, 0.5)

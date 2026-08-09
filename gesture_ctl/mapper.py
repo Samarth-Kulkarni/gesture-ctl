@@ -71,12 +71,20 @@ class ScreenMapper:
         raw_x = rel_x * (self._cfg.screen_width - 1)
         raw_y = rel_y * (self._cfg.screen_height - 1)
 
-        # 3. EMA smoothing
-        alpha = self._cfg.ema_alpha
-        if self._smooth_x is None:
+        # 3. Adaptive EMA smoothing based on movement velocity
+        if self._smooth_x is None or self._smooth_y is None:
             self._smooth_x = raw_x
             self._smooth_y = raw_y
         else:
+            dx = raw_x - self._smooth_x
+            dy = raw_y - self._smooth_y
+            dist = (dx * dx + dy * dy) ** 0.5
+
+            # Dynamically scale alpha: 0.15 for small jitter, up to 0.75 for fast moves
+            # dist threshold: 5px -> min alpha, 30px+ -> max alpha
+            speed_ratio = min(1.0, max(0.0, (dist - 5.0) / 25.0))
+            alpha = self._cfg.ema_alpha_min + speed_ratio * (self._cfg.ema_alpha_max - self._cfg.ema_alpha_min)
+
             self._smooth_x = alpha * raw_x + (1.0 - alpha) * self._smooth_x
             self._smooth_y = alpha * raw_y + (1.0 - alpha) * self._smooth_y
 

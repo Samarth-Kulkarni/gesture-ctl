@@ -112,7 +112,10 @@ class GestureEngine:
                     self._check_play_pause(lms, hand, ts)
 
                     # ── Cursor movement ─────────────────────────────────
-                    ix, iy = lms[LM.INDEX_TIP][0], lms[LM.INDEX_TIP][1]
+                    # We track the Index Knuckle (MCP) instead of the Tip.
+                    # The tip curls downwards when pinching causing cursor drop,
+                    # whereas the knuckle remains completely stable.
+                    ix, iy = lms[LM.INDEX_MCP][0], lms[LM.INDEX_MCP][1]
                     sx, sy = self._mapper.map(ix, iy)
                     self._dispatcher.move_cursor(sx, sy)
 

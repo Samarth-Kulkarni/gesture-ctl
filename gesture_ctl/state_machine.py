@@ -110,30 +110,16 @@ class _PinchFSM:
                         self._state = _State.IDLE
                         self._last_click = None
                         return self._dbl_ev
-                    # Single-click candidate — wait briefly for second pinch
+                    # Instant single click on release (0ms artificial delay)
                     self._last_click = now
-                    self._state = _State.CLICK_CANDIDATE
-                    return GestureEvent.NONE
+                    self._state = _State.IDLE
+                    return self._click_ev
                 else:
-                    # Released after a long hold that never became a drag
-                    # (shouldn't normally happen with drag_ms ≤ quick_ms)
                     self._state = _State.IDLE
                     return GestureEvent.NONE
             elif ms(self._pinch_start) >= self._drag_ms:
                 self._state = _State.DRAGGING
                 return self._drag_start_ev
-            return GestureEvent.NONE
-
-        if self._state is _State.CLICK_CANDIDATE:
-            if pinching:
-                # Second pinch within window → will become double-click on release
-                self._pinch_start = now
-                self._state = _State.PINCHED
-                return GestureEvent.NONE
-            if ms(self._last_click) >= self._dbl_ms:
-                # Timed out waiting for second pinch → emit single click
-                self._state = _State.IDLE
-                return self._click_ev
             return GestureEvent.NONE
 
         if self._state is _State.DRAGGING:
@@ -145,7 +131,7 @@ class _PinchFSM:
         return GestureEvent.NONE  # pragma: no cover
 
 
-# ── Euclidean distance helper ───────────────────────────────────────────
+# ── 3D Euclidean distance helper ────────────────────────────────────────
 
 def _dist3d(
     landmarks: list[tuple[float, float, float]],
