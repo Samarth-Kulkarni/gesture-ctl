@@ -44,14 +44,14 @@ class Config:
 
     # ── EMA Smoothing (Adaptive) ─────────────────────────────────────────
     ema_alpha: float = 0.2
-    ema_alpha_min: float = 0.15     # alpha when stationary (smooth hover)
-    ema_alpha_max: float = 0.75     # alpha when moving fast (zero lag)
+    ema_alpha_min: float = 0.02     # locks cursor completely still when hovering
+    ema_alpha_max: float = 0.40     # smooths out tracking shakes when moving
 
     # ── Active Margin Box (pixels inside the camera frame) ──────────────
-    margin_px: int = 220            # large margin = small hand motion reaches full screen
+    margin_px: int = 160            # balances easy reach with lower noise magnification
 
     # ── Pinch Detection ─────────────────────────────────────────────────
-    pinch_threshold: float = 0.035  # 3D normalised tip distance
+    pinch_threshold: float = 0.040  # 3D normalised tip distance
     quick_pinch_ms: int = 250       # max pinch duration for a single click
     double_pinch_window_ms: int = 350  # window for second pinch → double-click
     drag_hold_ms: int = 250         # hold duration to start drag

@@ -80,9 +80,9 @@ class ScreenMapper:
             dy = raw_y - self._smooth_y
             dist = (dx * dx + dy * dy) ** 0.5
 
-            # Dynamically scale alpha: 0.15 for small jitter, up to 0.75 for fast moves
-            # dist threshold: 5px -> min alpha, 30px+ -> max alpha
-            speed_ratio = min(1.0, max(0.0, (dist - 5.0) / 25.0))
+            # Dynamically scale alpha: 0.02 for small jitter, up to 0.40 for fast moves
+            # dist threshold: < 30px -> min alpha (cursor locked), 100px+ -> max alpha
+            speed_ratio = min(1.0, max(0.0, (dist - 30.0) / 70.0))
             alpha = self._cfg.ema_alpha_min + speed_ratio * (self._cfg.ema_alpha_max - self._cfg.ema_alpha_min)
 
             self._smooth_x = alpha * raw_x + (1.0 - alpha) * self._smooth_x

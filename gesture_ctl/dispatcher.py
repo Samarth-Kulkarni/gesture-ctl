@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 # Disable pyautogui pauses for real-time use
 pyautogui.PAUSE = 0
-pyautogui.FAILSAFE = True  # slam mouse to top-left corner to abort
+pyautogui.FAILSAFE = False  # disabled so cursor can safely hit the edges of the screen
 
 
 # ── Low-level cursor positioning ────────────────────────────────────────
