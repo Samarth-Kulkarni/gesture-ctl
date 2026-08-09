@@ -1,0 +1,31 @@
+# Python / venv
+.venv/
+venv/
+ENV/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Build / Distribution
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Downloaded MediaPipe Models
+gesture_ctl/models/
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Process ID file
+.gesture-ctl.pid
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gesture-ctl"
+version = "0.1.0"
+description = "Real-time webcam hand tracking to control Windows OS actions and a touchless virtual air-mouse."
+readme = "README.md"
+requires-python = ">=3.9,<3.13"
+license = {text = "MIT"}
+authors = [{name = "Samar"}]
+
+dependencies = [
+    "opencv-python>=4.8",
+    "mediapipe>=0.10",
+    "pyautogui>=0.9.54",
+    "pynput>=1.7",
+    "numpy>=1.24",
+    "psutil>=5.9",
+    "click>=8.1",
+    "pywin32>=306",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+]
+
+[project.scripts]
+gesture-ctl = "gesture_ctl.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["gesture_ctl*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
