@@ -50,6 +50,7 @@ class GestureEngine:
         self._v_detector = StationaryDetector(cfg, [LM.INDEX_TIP, LM.MIDDLE_TIP])
         self._palm_detector = StationaryDetector(cfg, [LM.WRIST, LM.INDEX_TIP])
         self._v_start: float | None = None
+        self._toggle_cooldown = 0.0
         self._palm_count = 0
         self._play_pause_cooldown = 0.0
 
@@ -142,6 +143,9 @@ class GestureEngine:
         handedness: str,
         ts: float,
     ) -> None:
+        if ts - self._toggle_cooldown < 2.0:
+            return  # debounce — ignore V-sign right after a toggle
+
         if is_v_sign(lms, handedness):
             self._v_detector.push(lms)
             if self._v_start is None:
@@ -155,6 +159,7 @@ class GestureEngine:
                     logger.info("Master toggle → %s", state_str)
                     self._v_start = None
                     self._v_detector.clear()
+                    self._toggle_cooldown = ts
         else:
             self._v_start = None
 
