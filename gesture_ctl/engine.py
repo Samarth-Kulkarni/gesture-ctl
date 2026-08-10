@@ -42,7 +42,7 @@ class GestureEngine:
         self._tracker = HandTracker()
         self._mapper = ScreenMapper(cfg)
         self._fsm = PinchStateMachine(cfg)
-        self._dispatcher = Dispatcher()
+        self._dispatcher = Dispatcher(cfg)
         self._watchdog = Watchdog(cam_index=cfg.cam_index)
 
         # System gesture state
@@ -107,6 +107,7 @@ class GestureEngine:
                 hand = result.handedness
 
                 # ── System gestures (always checked) ────────────────────
+                v_active = is_v_sign(lms, hand)
                 self._check_toggle(lms, hand, ts)
 
                 if self._engaged:
@@ -120,10 +121,13 @@ class GestureEngine:
                     sx, sy = self._mapper.map(ix, iy)
                     self._dispatcher.move_cursor(sx, sy)
 
-                    # ── Click / drag FSM ────────────────────────────────
-                    events = self._fsm.update(lms, ts)
-                    for ev in events:
-                        self._dispatcher.execute_event(ev)
+                    # ── Click / drag / scroll FSM ────────────────────────
+                    # Skip FSM while V-sign is held — curled ring/pinky
+                    # would otherwise trigger accidental scroll events.
+                    if not v_active:
+                        events = self._fsm.update(lms, ts)
+                        for ev in events:
+                            self._dispatcher.execute_event(ev)
             else:
                 # Hand lost — reset EMA so cursor doesn't jump when re-detected
                 self._mapper.reset()

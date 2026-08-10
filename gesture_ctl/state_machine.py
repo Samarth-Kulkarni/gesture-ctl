@@ -13,6 +13,17 @@ Each follows the same transition logic::
                        ▼                                 ▼
                    DRAGGING ──release──► IDLE        DOUBLE_CLICK ──► IDLE
 
+Scroll gestures use dedicated FSMs:
+
+* **Scroll Down FSM** — Thumb Tip (4) ↔ Ring Tip (16)
+* **Scroll Up FSM**   — Thumb Tip (4) ↔ Pinky Tip (20)
+
+Pinch detection uses **dual-threshold hysteresis**: a pinch activates when
+distance drops below ``pinch_threshold`` and only deactivates when distance
+rises above ``pinch_release_threshold``.  Drag release additionally requires
+``drag_release_frames`` consecutive frames above the release threshold to
+prevent accidental drops from landmark jitter.
+
 The module exposes a single :class:`PinchStateMachine` that returns
 :class:`GestureEvent` values every frame.
 """
@@ -45,6 +56,9 @@ class GestureEvent(enum.Enum):
     RIGHT_DRAG_START = "right_drag_start"
     RIGHT_DRAG_END = "right_drag_end"
 
+    SCROLL_UP = "scroll_up"
+    SCROLL_DOWN = "scroll_down"
+
 
 # ── Internal FSM states ────────────────────────────────────────────────
 
@@ -55,10 +69,15 @@ class _State(enum.Enum):
     DRAGGING = 3
 
 
-# ── Single-finger FSM ──────────────────────────────────────────────────
+# ── Single-finger FSM (with hysteresis & release debounce) ─────────────
 
 class _PinchFSM:
-    """State machine for one pinch pair (e.g. thumb+index)."""
+    """State machine for one pinch pair (e.g. thumb+index).
+
+    Uses dual-threshold hysteresis: enters pinch at ``pinch_threshold``,
+    exits only at ``pinch_release_threshold``.  Drag release additionally
+    requires ``drag_release_frames`` consecutive unpinched frames.
+    """
 
     def __init__(
         self,
@@ -69,9 +88,11 @@ class _PinchFSM:
         drag_end_event: GestureEvent,
     ) -> None:
         self._threshold = cfg.pinch_threshold
+        self._release_threshold = cfg.pinch_release_threshold
         self._quick_ms = cfg.quick_pinch_ms
         self._dbl_ms = cfg.double_pinch_window_ms
         self._drag_ms = cfg.drag_hold_ms
+        self._drag_release_frames = cfg.drag_release_frames
 
         self._click_ev = click_event
         self._dbl_ev = double_click_event
@@ -81,6 +102,7 @@ class _PinchFSM:
         self._state = _State.IDLE
         self._pinch_start: float = 0.0
         self._last_click: float | None = None
+        self._unpinch_count: int = 0  # consecutive frames above release threshold
 
     def update(self, distance: float, now: float) -> GestureEvent:
         """Advance the FSM given the current pinch *distance* and timestamp.
@@ -92,17 +114,20 @@ class _PinchFSM:
         now : float
             Current time in **seconds** (``time.perf_counter()``).
         """
-        pinching = distance < self._threshold
+        # Hysteresis: use lower threshold to enter, upper to exit
+        entering_pinch = distance < self._threshold
+        still_pinched = distance < self._release_threshold
         ms = lambda t: (now - t) * 1000.0  # noqa: E731
 
         if self._state is _State.IDLE:
-            if pinching:
+            if entering_pinch:
                 self._pinch_start = now
                 self._state = _State.PINCHED
+                self._unpinch_count = 0
             return GestureEvent.NONE
 
         if self._state is _State.PINCHED:
-            if not pinching:
+            if not still_pinched:
                 # Released — was it quick enough for a click?
                 if ms(self._pinch_start) < self._quick_ms:
                     # Check for double-click
@@ -119,16 +144,65 @@ class _PinchFSM:
                     return GestureEvent.NONE
             elif ms(self._pinch_start) >= self._drag_ms:
                 self._state = _State.DRAGGING
+                self._unpinch_count = 0
                 return self._drag_start_ev
             return GestureEvent.NONE
 
         if self._state is _State.DRAGGING:
-            if not pinching:
-                self._state = _State.IDLE
-                return self._drag_end_ev
+            if not still_pinched:
+                self._unpinch_count += 1
+                if self._unpinch_count >= self._drag_release_frames:
+                    self._state = _State.IDLE
+                    self._unpinch_count = 0
+                    return self._drag_end_ev
+            else:
+                self._unpinch_count = 0
             return GestureEvent.NONE
 
         return GestureEvent.NONE  # pragma: no cover
+
+
+# ── Scroll FSM (continuous scroll while pinched) ───────────────────────
+
+class _ScrollFSM:
+    """Emits scroll events repeatedly while a finger pair is pinched.
+
+    Uses the same hysteresis approach as ``_PinchFSM``.
+    """
+
+    def __init__(
+        self,
+        cfg: Config,
+        scroll_event: GestureEvent,
+    ) -> None:
+        self._threshold = cfg.scroll_threshold
+        self._release_threshold = cfg.scroll_release_threshold
+        self._interval_s = cfg.scroll_interval_ms / 1000.0
+        self._scroll_ev = scroll_event
+
+        self._active = False
+        self._last_scroll: float = 0.0
+
+    def update(self, distance: float, now: float) -> GestureEvent:
+        """Return a scroll event if enough time has elapsed since the last pulse."""
+        entering = distance < self._threshold
+        still_held = distance < self._release_threshold
+
+        if not self._active:
+            if entering:
+                self._active = True
+                self._last_scroll = now
+                return self._scroll_ev
+        else:
+            if not still_held:
+                self._active = False
+                return GestureEvent.NONE
+            # Emit repeated scroll pulses
+            if now - self._last_scroll >= self._interval_s:
+                self._last_scroll = now
+                return self._scroll_ev
+
+        return GestureEvent.NONE
 
 
 # ── 3D Euclidean distance helper ────────────────────────────────────────
@@ -147,10 +221,10 @@ def _dist3d(
 # ── Combined FSM facade ────────────────────────────────────────────────
 
 class PinchStateMachine:
-    """Runs left-click and right-click FSMs in parallel.
+    """Runs left-click, right-click, and scroll FSMs in parallel.
 
     Call :meth:`update` once per frame with the full landmark list.
-    It returns a list of :class:`GestureEvent` values (typically 0–2).
+    It returns a list of :class:`GestureEvent` values (typically 0–4).
     """
 
     def __init__(self, cfg: Config) -> None:
@@ -168,6 +242,8 @@ class PinchStateMachine:
             drag_start_event=GestureEvent.RIGHT_DRAG_START,
             drag_end_event=GestureEvent.RIGHT_DRAG_END,
         )
+        self._scroll_down = _ScrollFSM(cfg, scroll_event=GestureEvent.SCROLL_DOWN)
+        self._scroll_up = _ScrollFSM(cfg, scroll_event=GestureEvent.SCROLL_UP)
 
     def update(
         self,
@@ -188,6 +264,8 @@ class PinchStateMachine:
 
         left_dist = _dist3d(landmarks, LM.THUMB_TIP, LM.INDEX_TIP)
         right_dist = _dist3d(landmarks, LM.THUMB_TIP, LM.MIDDLE_TIP)
+        ring_dist = _dist3d(landmarks, LM.THUMB_TIP, LM.RING_TIP)
+        pinky_dist = _dist3d(landmarks, LM.THUMB_TIP, LM.PINKY_TIP)
 
         events: list[GestureEvent] = []
 
@@ -198,5 +276,13 @@ class PinchStateMachine:
         ev_r = self._right.update(right_dist, now)
         if ev_r is not GestureEvent.NONE:
             events.append(ev_r)
+
+        ev_sd = self._scroll_down.update(ring_dist, now)
+        if ev_sd is not GestureEvent.NONE:
+            events.append(ev_sd)
+
+        ev_su = self._scroll_up.update(pinky_dist, now)
+        if ev_su is not GestureEvent.NONE:
+            events.append(ev_su)
 
         return events

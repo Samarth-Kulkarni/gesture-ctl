@@ -1,7 +1,7 @@
 """Phase 4 — OS action dispatcher.
 
 Translates :class:`GestureEvent` values and screen coordinates into
-real Windows OS actions: cursor moves, clicks, drags, and media keys.
+real Windows OS actions: cursor moves, clicks, drags, scroll, and media keys.
 
 Cursor positioning uses ``win32api.SetCursorPos`` via ctypes for minimal
 latency (~0.1 ms).  Click/drag events use ``pyautogui``.  Media keys
@@ -16,6 +16,7 @@ import logging
 import pyautogui
 from pynput.keyboard import Controller as KbController, Key
 
+from gesture_ctl.config import Config
 from gesture_ctl.state_machine import GestureEvent
 
 logger = logging.getLogger(__name__)
@@ -40,8 +41,9 @@ def _set_cursor(x: int, y: int) -> None:
 class Dispatcher:
     """Execute OS-level actions from gesture events."""
 
-    def __init__(self) -> None:
+    def __init__(self, cfg: Config | None = None) -> None:
         self._keyboard = KbController()
+        self._scroll_step = cfg.scroll_step if cfg is not None else 120
 
     # ── Cursor ──────────────────────────────────────────────────────────
 
@@ -49,7 +51,7 @@ class Dispatcher:
         """Instantly move the OS cursor to *(x, y)*."""
         _set_cursor(x, y)
 
-    # ── Click / drag ────────────────────────────────────────────────────
+    # ── Click / drag / scroll ───────────────────────────────────────────
 
     def execute_event(self, event: GestureEvent) -> None:
         """Dispatch a single :class:`GestureEvent` to the OS."""
@@ -85,6 +87,14 @@ class Dispatcher:
                 logger.debug("RIGHT DRAG END")
                 pyautogui.mouseUp(button="right")
 
+            # Scroll
+            case GestureEvent.SCROLL_DOWN:
+                logger.debug("SCROLL DOWN")
+                pyautogui.scroll(-self._scroll_step)
+            case GestureEvent.SCROLL_UP:
+                logger.debug("SCROLL UP")
+                pyautogui.scroll(self._scroll_step)
+
     # ── Media keys ──────────────────────────────────────────────────────
 
     def play_pause(self) -> None:
@@ -102,3 +112,4 @@ class Dispatcher:
         """One step of volume down."""
         self._keyboard.press(Key.media_volume_down)
         self._keyboard.release(Key.media_volume_down)
+

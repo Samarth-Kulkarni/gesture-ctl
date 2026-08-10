@@ -52,9 +52,17 @@ class Config:
 
     # ── Pinch Detection ─────────────────────────────────────────────────
     pinch_threshold: float = 0.040  # 3D normalised tip distance
+    pinch_release_threshold: float = 0.060  # upper distance to release a pinch (hysteresis)
+    drag_release_frames: int = 2    # consecutive unpinched frames needed to end drag
     quick_pinch_ms: int = 250       # max pinch duration for a single click
     double_pinch_window_ms: int = 350  # window for second pinch → double-click
     drag_hold_ms: int = 250         # hold duration to start drag
+
+    # ── Scroll Gestures (Ring / Pinky + Thumb) ──────────────────────────
+    scroll_threshold: float = 0.040     # pinch trigger distance for ring/pinky
+    scroll_release_threshold: float = 0.060  # release distance for scroll pinch
+    scroll_interval_ms: float = 100.0   # ms between scroll pulses while held
+    scroll_step: int = 80               # scroll amount per pulse (smaller = smoother)
 
     # ── System Gesture Thresholds ───────────────────────────────────────
     toggle_hold_s: float = 1.0      # V-sign hold to toggle engagement
